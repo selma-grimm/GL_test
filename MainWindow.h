@@ -25,14 +25,28 @@ private slots:
 
 private:
 	void calculateAndLogSum();
-	void calculateOneFile(const QString& path);
 
 	QFuture<void> m_future;
 	QFutureWatcher<void> m_futureWatcher;
-	QFile m_logFile;
+	QFile* m_pLogFile;
+	QFileInfoList m_filesList;
 	Ui::MainWindow *ui;
 
 	QFileSystemModel m_model;
+};
+
+struct CalculatorFunctor: public std::unary_function<QFileInfo, void>
+{
+	CalculatorFunctor(QFile* pFile):
+		std::unary_function<QFileInfo, void>()
+	  , m_pLogFile(pFile)
+	{ }
+
+	void operator()(const QFileInfo& fileInfo);
+
+private:
+	const QFile* m_pLogFile;
+	QMutex m_mutex;
 };
 
 #endif // MAINWINDOW_H

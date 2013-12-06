@@ -2,14 +2,15 @@
 #include <QFileSystemModel>
 #include <QLayout>
 #include <QMenu>
-#include <QtConcurrentRun>
+#include <QtConcurrentMap>
 
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
 MainWindow::MainWindow(QWidget *parent) :
-	QMainWindow(parent),
-	ui(new Ui::MainWindow)
+	QMainWindow(parent)
+	, ui(new Ui::MainWindow)
+	, m_pLogFile(new QFile())
 {
 	ui->setupUi(this);
 
@@ -51,52 +52,43 @@ void MainWindow::showContextMenu(const QPoint &p)
 
 void MainWindow::finishedCounting()
 {
-
+	m_pLogFile->close();
+	delete m_pLogFile;
+	m_pLogFile = nullptr;
 }
 
 void MainWindow::calculateAndLogSum()
 {
 //TODO: add check for empty selection or only folders
-	QModelIndexList allIndexes = ui->tree->selectedIndexes();
-	QStringList fileNamesList;
+	QModelIndexList allIndexes = ui->tree->selectionModel()->selectedIndexes();
+	m_filesList.clear();
 	foreach (const QModelIndex& index, allIndexes)
 	{
 		if (index.column() == 0)
 		{
 			QFileInfo fi = m_model.fileInfo(index);
 			if (!fi.isDir())
-				fileNamesList << fi.absoluteFilePath();
+				m_filesList << fi;
 		}
 	}
 
-	QFileInfo fi = m_model.fileInfo(allIndexes.first());
-	QString logName = fi.absolutePath() + QDir::separator() + "test_log.txt";
+	if (m_filesList.isEmpty())
+		return;
 
-	m_logFile.setFileName(logName);
-	if (!m_logFile.open(QIODevice::WriteOnly | QIODevice::Append))
+	QString logName = m_filesList.first().absolutePath() + QDir::separator() + "test_log.txt";
+
+	m_pLogFile->setFileName(logName);
+	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
 //TODO: do something nice here
 		return;
 
-	m_future = QtConcurrent::map(fileNamesList, calculateOneFile);
-
+	m_future = QtConcurrent::map(m_filesList, CalculatorFunctor(m_pLogFile));
 	m_futureWatcher.setFuture(m_future);
 }
 
-void MainWindow::calculateOneFile(const QString &path)
+void CalculatorFunctor::operator()(const QFileInfo &fileInfo)
 {
-	m_logFile.close();
+	qDebug() << fileInfo.absoluteFilePath();
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
