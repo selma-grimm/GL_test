@@ -3,6 +3,7 @@
 #include <QLayout>
 #include <QMenu>
 #include <QtConcurrentMap>
+#include <QFile>
 
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
@@ -59,7 +60,6 @@ void MainWindow::finishedCounting()
 
 void MainWindow::calculateAndLogSum()
 {
-//TODO: add check for empty selection or only folders
 	QModelIndexList allIndexes = ui->tree->selectionModel()->selectedIndexes();
 	m_filesList.clear();
 	foreach (const QModelIndex& index, allIndexes)
@@ -86,9 +86,21 @@ void MainWindow::calculateAndLogSum()
 	m_futureWatcher.setFuture(m_future);
 }
 
+CalculatorFunctor::CalculatorFunctor(QFile *pFile):
+	std::unary_function<QFileInfo, void>()
+  , m_pLogFile(pFile)
+  , m_mutex(QMutex(QMutex::NonRecursive))
+{
+
+}
+
 void CalculatorFunctor::operator()(const QFileInfo &fileInfo)
 {
-	qDebug() << fileInfo.absoluteFilePath();
+	QMutexLocker locker(&m_mutex);
+
+	QString toWrite(fileInfo.absoluteFilePath());
+	m_pLogFile->write(toWrite.toStdString().c_str());
+
 }
 
 

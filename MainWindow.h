@@ -37,15 +37,12 @@ private:
 
 struct CalculatorFunctor: public std::unary_function<QFileInfo, void>
 {
-	CalculatorFunctor(QFile* pFile):
-		std::unary_function<QFileInfo, void>()
-	  , m_pLogFile(pFile)
-	{ }
+	CalculatorFunctor(QFile* pFile);
 
 	void operator()(const QFileInfo& fileInfo);
 
 private:
-	const QFile* m_pLogFile;
+	QFile* const m_pLogFile;
 	QMutex m_mutex;
 };
 
