@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QFuture>
+#include <QFutureWatcher>
 
 #include <QFileSystemModel>
 
@@ -19,13 +21,18 @@ public:
 
 private slots:
 	void showContextMenu(const QPoint& p);
+	void finishedCounting();
 
 private:
 	void calculateAndLogSum();
+	void calculateOneFile(const QString& path);
 
+	QFuture<void> m_future;
+	QFutureWatcher<void> m_futureWatcher;
+	QFile m_logFile;
 	Ui::MainWindow *ui;
 
-	QFileSystemModel model;
+	QFileSystemModel m_model;
 };
 
 #endif // MAINWINDOW_H
