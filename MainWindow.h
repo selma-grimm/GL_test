@@ -57,13 +57,16 @@ struct CalculatorFunctor: public std::unary_function<FileInfo, void>
 	CalculatorFunctor(QFile* pFile);
 
     void operator()(const FileInfo& fileInfo);
+    static QString checksum_test(const QString& fileName);
 
 private:
     QString makeHumanReadable(qint64 iSize);
-    QString checksum(const FileInfo& fi);
+    static QString checksum(const FileInfo& fi);
 
     const std::shared_ptr<QFile> m_pLogFile;
     const std::shared_ptr<QMutex> m_pMutex;
-};
 
+    static const int BUFSIZE = 8192;
+    static const quint32 m_crc32_tab[256];
+};
 #endif // MAINWINDOW_H

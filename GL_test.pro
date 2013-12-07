@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui concurrent
+QT       += core gui concurrent testlib
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -13,9 +13,11 @@ TEMPLATE = app
 
 
 SOURCES += main.cpp\
-        MainWindow.cpp
+        MainWindow.cpp \
+    CRCTestClass.cpp
 
-HEADERS  += MainWindow.h
+HEADERS  += MainWindow.h \
+    CRCTestClass.h
 
 FORMS    += MainWindow.ui
 
