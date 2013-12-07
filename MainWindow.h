@@ -14,6 +14,19 @@ class MainWindow;
 
 struct CalculatorFunctor;
 
+class FileInfo: public QFileInfo
+{
+public:
+    FileInfo(const QFileInfo& qfi):
+        QFileInfo(qfi)
+    { }
+
+    bool operator<(FileInfo other) const
+    {
+        return completeBaseName() < other.completeBaseName();
+    }
+};
+
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -33,7 +46,7 @@ private:
 	QFuture<void> m_future;
 	QFutureWatcher<void> m_futureWatcher;
 	QFile* m_pLogFile;
-    std::set<QFileInfo> m_fiSet;
+    std::set<FileInfo> m_fiSet;
     CalculatorFunctor* m_cf;
 
 	QFileSystemModel m_model;
@@ -46,6 +59,8 @@ struct CalculatorFunctor: public std::unary_function<QFileInfo, void>
 	void operator()(const QFileInfo& fileInfo);
 
 private:
+    QString makeHumanRedable(qint64 iSize);
+
     const std::shared_ptr<QFile> m_pLogFile;
     const std::shared_ptr<QMutex> m_pMutex;
 };

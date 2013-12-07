@@ -4,6 +4,7 @@
 #include <QMenu>
 #include <QtConcurrentMap>
 #include <QFile>
+#include <QDateTime>
 
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
@@ -56,11 +57,6 @@ void MainWindow::showContextMenu(const QPoint &p)
 void MainWindow::cleanup()
 {
 	m_pLogFile->close();
-//	delete m_pLogFile;
-//	m_pLogFile = nullptr;
-
-//    delete m_cf;
-//    m_cf = nullptr;
 }
 
 void MainWindow::calculateAndLogSum()
@@ -69,9 +65,9 @@ void MainWindow::calculateAndLogSum()
     m_fiSet.clear();
 	foreach (const QModelIndex& index, allIndexes)
 	{	
-        const QFileInfo& fi = m_model.fileInfo(index);
-        if (!fi.isDir())
-            m_fiSet.insert(fi);
+        const QFileInfo& qfi = m_model.fileInfo(index);
+        if (!qfi.isDir())
+            m_fiSet.insert(FileInfo(qfi));
 	}
 
     if (m_fiSet.empty())
@@ -81,7 +77,6 @@ void MainWindow::calculateAndLogSum()
 
     m_pLogFile = new QFile(logName);
 	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
-//TODO: do something nice here
 		return;
 
     m_cf = new CalculatorFunctor(m_pLogFile);
@@ -93,18 +88,51 @@ CalculatorFunctor::CalculatorFunctor(QFile *pFile):
 	std::unary_function<QFileInfo, void>()
   , m_pLogFile(std::shared_ptr<QFile>(pFile))
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
-{
-
-}
+{ }
 
 void CalculatorFunctor::operator()(const QFileInfo &fileInfo)
 {    
-    QString toWrite(fileInfo.absoluteFilePath());
+    QString toWrite(fileInfo.completeBaseName() + " - ");
+    toWrite.append(" SIZE: " + makeHumanRedable(fileInfo.size()));
+    toWrite.append(" CREATED: " + fileInfo.created().toString("dd.MM.yyyy"));
+    toWrite.append(" MODIFIED: " + fileInfo.lastModified().toString("dd.MM.yyyy"));
     toWrite.append("\n");
 
-    QMutexLocker locker(m_pMutex.get());
+    QMutexLocker locker(m_pMutex.get());    
     m_pLogFile->write(toWrite.toUtf8());
-
 }
+
+QString CalculatorFunctor::makeHumanRedable(qint64 iSize)
+{
+    QString result;
+    int bytesPerKB = 1024;
+    int bytesPerMB = bytesPerKB * 1024;
+    int bytesPerGB = bytesPerMB * 1024;
+
+    if (iSize > bytesPerGB)
+    {
+       int r = iSize / bytesPerGB;
+       result = QString::number(r) + " ";
+       r = iSize % bytesPerGB;
+       result += QString::number(r) + " GB";
+    }
+    else if (iSize > bytesPerMB)
+    {
+        int r = iSize / bytesPerMB;
+        result = QString::number(r) + " MB";
+    }
+    else if (iSize > bytesPerKB)
+    {
+        int r = iSize / bytesPerKB;
+        result =  QString::number(r) + " KB";
+    }
+    else
+    {
+        result = QString::number(iSize) + " B";
+    }
+
+    return result;
+}
+
 
 
