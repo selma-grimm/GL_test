@@ -5,6 +5,7 @@
 #include <QtConcurrentMap>
 #include <QFile>
 #include <QDateTime>
+#include <QCryptographicHash>
 
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
@@ -56,6 +57,7 @@ void MainWindow::showContextMenu(const QPoint &p)
 
 void MainWindow::cleanup()
 {
+    qDebug() << "cleanup";
 	m_pLogFile->close();
 }
 
@@ -85,24 +87,25 @@ void MainWindow::calculateAndLogSum()
 }
 
 CalculatorFunctor::CalculatorFunctor(QFile *pFile):
-	std::unary_function<QFileInfo, void>()
+    std::unary_function<FileInfo, void>()
   , m_pLogFile(std::shared_ptr<QFile>(pFile))
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
 { }
 
-void CalculatorFunctor::operator()(const QFileInfo &fileInfo)
+void CalculatorFunctor::operator()(const FileInfo &fileInfo)
 {    
-    QString toWrite(fileInfo.completeBaseName() + " - ");
-    toWrite.append(" SIZE: " + makeHumanRedable(fileInfo.size()));
+    QString toWrite(fileInfo.fileName() + " - ");
+    toWrite.append(" SIZE: " + makeHumanReadable(fileInfo.size()));
     toWrite.append(" CREATED: " + fileInfo.created().toString("dd.MM.yyyy"));
     toWrite.append(" MODIFIED: " + fileInfo.lastModified().toString("dd.MM.yyyy"));
+    toWrite.append(" " + checksum(fileInfo));
     toWrite.append("\n");
 
     QMutexLocker locker(m_pMutex.get());    
     m_pLogFile->write(toWrite.toUtf8());
 }
 
-QString CalculatorFunctor::makeHumanRedable(qint64 iSize)
+QString CalculatorFunctor::makeHumanReadable(qint64 iSize)
 {
     QString result;
     int bytesPerKB = 1024;
@@ -113,18 +116,22 @@ QString CalculatorFunctor::makeHumanRedable(qint64 iSize)
     {
        int r = iSize / bytesPerGB;
        result = QString::number(r) + " ";
-       r = iSize % bytesPerGB;
+       r = (iSize % bytesPerGB) / bytesPerMB;
        result += QString::number(r) + " GB";
     }
     else if (iSize > bytesPerMB)
     {
         int r = iSize / bytesPerMB;
-        result = QString::number(r) + " MB";
+        result = QString::number(r) + " ";
+        r = (iSize % bytesPerMB) / bytesPerKB;
+        result += QString::number(r) + " MB";
     }
     else if (iSize > bytesPerKB)
     {
         int r = iSize / bytesPerKB;
-        result =  QString::number(r) + " KB";
+        result =  QString::number(r) + " ";
+        r = iSize % bytesPerKB;
+        result += QString::number(r) + " KB";
     }
     else
     {
@@ -132,6 +139,17 @@ QString CalculatorFunctor::makeHumanRedable(qint64 iSize)
     }
 
     return result;
+}
+
+QString CalculatorFunctor::checksum(const FileInfo &fi)
+{
+    QFile file(fi.absoluteFilePath());
+    if (!file.open(QIODevice::ReadOnly))
+        return QString("file not available");
+
+    QByteArray data(file.readAll());
+    QString c_sum(QCryptographicHash::hash(data, QCryptographicHash::Md5).toHex());
+    return c_sum;
 }
 
 

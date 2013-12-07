@@ -23,7 +23,7 @@ public:
 
     bool operator<(FileInfo other) const
     {
-        return completeBaseName() < other.completeBaseName();
+        return fileName() < other.fileName();
     }
 };
 
@@ -52,14 +52,15 @@ private:
 	QFileSystemModel m_model;
 };
 
-struct CalculatorFunctor: public std::unary_function<QFileInfo, void>
+struct CalculatorFunctor: public std::unary_function<FileInfo, void>
 {
 	CalculatorFunctor(QFile* pFile);
 
-	void operator()(const QFileInfo& fileInfo);
+    void operator()(const FileInfo& fileInfo);
 
 private:
-    QString makeHumanRedable(qint64 iSize);
+    QString makeHumanReadable(qint64 iSize);
+    QString checksum(const FileInfo& fi);
 
     const std::shared_ptr<QFile> m_pLogFile;
     const std::shared_ptr<QMutex> m_pMutex;
