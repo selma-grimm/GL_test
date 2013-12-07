@@ -11,7 +11,8 @@
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent)
 	, ui(new Ui::MainWindow)
-	, m_pLogFile(new QFile())
+    , m_pLogFile(nullptr)
+    , m_cf(nullptr)
 {
 	ui->setupUi(this);
 
@@ -23,6 +24,7 @@ MainWindow::MainWindow(QWidget *parent) :
 	view->setSelectionBehavior(QAbstractItemView::SelectRows);
 	view->setSelectionMode(QAbstractItemView::MultiSelection);
 	view->setContextMenuPolicy(Qt::CustomContextMenu);
+    view->setColumnWidth(0, 300);
 
 	connect(view,
 			SIGNAL(customContextMenuRequested(QPoint)),
@@ -31,7 +33,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
 	connect(&m_futureWatcher,
 			SIGNAL(finished()),
-			SLOT(finishedCounting()));
+            SLOT(cleanup()));
 
 }
 
@@ -51,55 +53,57 @@ void MainWindow::showContextMenu(const QPoint &p)
 		calculateAndLogSum();
 }
 
-void MainWindow::finishedCounting()
+void MainWindow::cleanup()
 {
 	m_pLogFile->close();
-	delete m_pLogFile;
-	m_pLogFile = nullptr;
+//	delete m_pLogFile;
+//	m_pLogFile = nullptr;
+
+//    delete m_cf;
+//    m_cf = nullptr;
 }
 
 void MainWindow::calculateAndLogSum()
 {
-	QModelIndexList allIndexes = ui->tree->selectionModel()->selectedIndexes();
-	m_filesList.clear();
+    const QModelIndexList allIndexes = ui->tree->selectionModel()->selectedRows(0);
+    m_fiSet.clear();
 	foreach (const QModelIndex& index, allIndexes)
-	{
-		if (index.column() == 0)
-		{
-			QFileInfo fi = m_model.fileInfo(index);
-			if (!fi.isDir())
-				m_filesList << fi;
-		}
+	{	
+        const QFileInfo& fi = m_model.fileInfo(index);
+        if (!fi.isDir())
+            m_fiSet.insert(fi);
 	}
 
-	if (m_filesList.isEmpty())
+    if (m_fiSet.empty())
 		return;
 
-	QString logName = m_filesList.first().absolutePath() + QDir::separator() + "test_log.txt";
+    QString logName = m_fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
 
-	m_pLogFile->setFileName(logName);
+    m_pLogFile = new QFile(logName);
 	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
 //TODO: do something nice here
 		return;
 
-	m_future = QtConcurrent::map(m_filesList, CalculatorFunctor(m_pLogFile));
+    m_cf = new CalculatorFunctor(m_pLogFile);
+    m_future = QtConcurrent::map(m_fiSet, *m_cf);
 	m_futureWatcher.setFuture(m_future);
 }
 
 CalculatorFunctor::CalculatorFunctor(QFile *pFile):
 	std::unary_function<QFileInfo, void>()
-  , m_pLogFile(pFile)
-  , m_mutex(QMutex(QMutex::NonRecursive))
+  , m_pLogFile(std::shared_ptr<QFile>(pFile))
+  , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
 {
 
 }
 
 void CalculatorFunctor::operator()(const QFileInfo &fileInfo)
-{
-	QMutexLocker locker(&m_mutex);
+{    
+    QString toWrite(fileInfo.absoluteFilePath());
+    toWrite.append("\n");
 
-	QString toWrite(fileInfo.absoluteFilePath());
-	m_pLogFile->write(toWrite.toStdString().c_str());
+    QMutexLocker locker(m_pMutex.get());
+    m_pLogFile->write(toWrite.toUtf8());
 
 }
 

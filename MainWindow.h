@@ -4,12 +4,15 @@
 #include <QMainWindow>
 #include <QFuture>
 #include <QFutureWatcher>
-
 #include <QFileSystemModel>
+#include <set>
+#include <memory>
 
 namespace Ui {
 class MainWindow;
 }
+
+struct CalculatorFunctor;
 
 class MainWindow : public QMainWindow
 {
@@ -21,16 +24,17 @@ public:
 
 private slots:
 	void showContextMenu(const QPoint& p);
-	void finishedCounting();
+    void cleanup();
 
 private:
 	void calculateAndLogSum();
 
+    Ui::MainWindow *ui;
 	QFuture<void> m_future;
 	QFutureWatcher<void> m_futureWatcher;
 	QFile* m_pLogFile;
-	QFileInfoList m_filesList;
-	Ui::MainWindow *ui;
+    std::set<QFileInfo> m_fiSet;
+    CalculatorFunctor* m_cf;
 
 	QFileSystemModel m_model;
 };
@@ -42,8 +46,8 @@ struct CalculatorFunctor: public std::unary_function<QFileInfo, void>
 	void operator()(const QFileInfo& fileInfo);
 
 private:
-	QFile* const m_pLogFile;
-	QMutex m_mutex;
+    const std::shared_ptr<QFile> m_pLogFile;
+    const std::shared_ptr<QMutex> m_pMutex;
 };
 
 #endif // MAINWINDOW_H
