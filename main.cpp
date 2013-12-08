@@ -1,8 +1,10 @@
 #include "MainWindow.h"
-#include "CRCTestClass.h"
 #include <QApplication>
 
-//#define RUN_TEST
+#ifdef RUN_TEST
+#include "CRCTestClass.h"
+#endif
+
 
 int main(int argc, char *argv[])
 {

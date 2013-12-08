@@ -89,8 +89,9 @@ MainWindow::MainWindow(QWidget *parent) :
 	m_model.setRootPath(QDir::currentPath());
 	m_model.setFilter(QDir::AllEntries);
 
-	QTreeView* view = ui->tree;
+	QTreeView* view = ui->tree;    
 	view->setModel(&m_model);
+    view->setUniformRowHeights(true);
 	view->setSelectionBehavior(QAbstractItemView::SelectRows);
 	view->setSelectionMode(QAbstractItemView::MultiSelection);
 	view->setContextMenuPolicy(Qt::CustomContextMenu);
