@@ -80,9 +80,7 @@ const quint32 CalculatorFunctor::m_crc32_tab[256] =
 
 MainWindow::MainWindow(QWidget *parent) :
 	QMainWindow(parent)
-	, ui(new Ui::MainWindow)
-    , m_pLogFile(nullptr)
-    , m_cf(nullptr)
+	, ui(new Ui::MainWindow)     
 {
 	ui->setupUi(this);
 
@@ -125,9 +123,12 @@ void MainWindow::showContextMenu(const QPoint &p)
 }
 
 void MainWindow::cleanup()
-{
-    qDebug() << "cleanup";
-	m_pLogFile->close();
+{    
+    if (m_pLogFile)
+    {
+        m_pLogFile->close();
+        m_pLogFile.reset();
+    }
 }
 
 void MainWindow::calculateAndLogSum()
@@ -148,18 +149,20 @@ void MainWindow::calculateAndLogSum()
 
     QString logName = m_fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
 
-    m_pLogFile = new QFile(logName);
+    m_pLogFile = std::shared_ptr<QFile>(new QFile(logName));
 	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
+    {
+        m_pLogFile.reset();
 		return;
+    }
 
-    m_cf = new CalculatorFunctor(m_pLogFile);
-    m_future = QtConcurrent::map(m_fiSet, *m_cf);
+    m_future = QtConcurrent::map(m_fiSet, CalculatorFunctor(m_pLogFile));
 	m_futureWatcher.setFuture(m_future);
 }
 
-CalculatorFunctor::CalculatorFunctor(QFile *pFile):
+CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
     std::unary_function<FileInfo, void>()
-  , m_pLogFile(std::shared_ptr<QFile>(pFile))
+  , m_pLogFile(pFile)
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
 { }
 
@@ -219,19 +222,16 @@ QString CalculatorFunctor::checksum(const FileInfo &fi)
         return QString("file not available");
 
     char buf[BUFSIZE];
-    quint32 crc32 = 0;
-    qint64 i = 0, n = 0;
+    quint32 crc32 = 0xffffffff;
+    qint64 n = 0;
 
-    crc32 = 0xffffffff;
-    while((n = file.read(buf, 1)) > 0)
+    while((n = file.read(buf, BUFSIZE)) > 0)
     {
-        for(i = 0; i < n; i++)
-        {
-            crc32 = (crc32 >> 8) ^ m_crc32_tab[(crc32 & 0xff) ^ buf[i]];
-        }
+        for (qint64 i = 0; i < n; i++)
+            crc32 = (crc32 >> 8) ^ m_crc32_tab[(crc32 ^ buf[i]) & 0xff];
     }
-    crc32 ^= 0xffffffff;
 
+    crc32 ^= 0xffffffff;
     file.close();
 
     QString c_sum(QByteArray::number(crc32, 16));

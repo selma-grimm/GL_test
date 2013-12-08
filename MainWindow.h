@@ -45,16 +45,15 @@ private:
     Ui::MainWindow *ui;
 	QFuture<void> m_future;
 	QFutureWatcher<void> m_futureWatcher;
-	QFile* m_pLogFile;
+    std::shared_ptr<QFile> m_pLogFile;
     std::set<FileInfo> m_fiSet;
-    CalculatorFunctor* m_cf;
 
 	QFileSystemModel m_model;
 };
 
 struct CalculatorFunctor: public std::unary_function<FileInfo, void>
 {
-	CalculatorFunctor(QFile* pFile);
+    CalculatorFunctor(std::shared_ptr<QFile> pFile);
 
     void operator()(const FileInfo& fileInfo);
     static QString checksum_test(const QString& fileName);
