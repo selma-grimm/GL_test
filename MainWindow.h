@@ -64,6 +64,7 @@ private:
 
     const std::shared_ptr<QFile> m_pLogFile;
     const std::shared_ptr<QMutex> m_pMutex;
+  //  QMutex mutex;
 
     static const int BUFSIZE = 8192;
     static const quint32 m_crc32_tab[256];
