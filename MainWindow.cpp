@@ -164,6 +164,17 @@ CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
     std::unary_function<FileInfo, void>()
   , m_pLogFile(pFile)
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
+  //  , mutex(QMutex::NonRecursive)
+
+  // If uncomment last line, both compilers I've tested say: "'QMutex::QMutex(const QMutex&)' is private".
+  // Thought, as I understand, they shouldn't, because in this line mustn't copy ctor called,
+  // but the normal ctor with passed parameter must.
+  // Because of this message, I haven't found another way to initialize mutex with required parameter,
+  // than on the heap.
+
+  // And shared_ptr for mutex used because of too much care about safety. It's not nessesary,
+  // (and can be just deleted int dtor), as standard Qt build's methods don't throw exceptions.
+  // Just for the case if my code will suddenly throw something.
 { }
 
 void CalculatorFunctor::operator()(const FileInfo &fileInfo)
@@ -175,7 +186,7 @@ void CalculatorFunctor::operator()(const FileInfo &fileInfo)
     toWrite.append(" " + checksum(fileInfo));
     toWrite.append("\n");
 
-    QMutexLocker locker(m_pMutex.get());    
+    QMutexLocker locker(m_pMutex.get());
     m_pLogFile->write(toWrite.toUtf8());
 }
 
