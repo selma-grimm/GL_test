@@ -14,7 +14,7 @@ void CRCTestClass::testCRC()
                      );
     qDebug() << fileName;
 
-    QString calculated_crc(CalculatorFunctor::checksum_test(fileName));
+    QString calculated_crc(Calculator::checksum_test(fileName));
 
     QCOMPARE(calculated_crc, correct_crc);
 }

@@ -10,7 +10,7 @@
 #include "MainWindow.h"
 #include "ui_MainWindow.h"
 
-const quint32 CalculatorFunctor::m_crc32_tab[256] =
+const quint32 Calculator::m_crc32_tab[256] =
     {
         0x00000000, 0x77073096, 0xee0e612c, 0x990951ba,
         0x076dc419, 0x706af48f, 0xe963a535, 0x9e6495a3,
@@ -99,11 +99,6 @@ MainWindow::MainWindow(QWidget *parent) :
 			SIGNAL(customContextMenuRequested(QPoint)),
 			this,
 			SLOT(showContextMenu(QPoint)));
-
-	connect(&m_futureWatcher,
-			SIGNAL(finished()),
-            SLOT(cleanup()));
-
 }
 
 MainWindow::~MainWindow()
@@ -122,69 +117,55 @@ void MainWindow::showContextMenu(const QPoint &p)
 		calculateAndLogSum();
 }
 
-void MainWindow::cleanup()
-{    
-    if (m_pLogFile)
-    {
-        m_pLogFile->close();
-        m_pLogFile.reset();
-    }
-}
-
 void MainWindow::calculateAndLogSum()
 {
     const QModelIndexList allIndexes = ui->tree->selectionModel()->selectedRows(0);
     ui->tree->clearSelection();
-    m_fiSet.clear();
 
-	foreach (const QModelIndex& index, allIndexes)
-	{	
+    QFileInfo any_fi(m_model.fileInfo(allIndexes.first()));
+    QString logName = any_fi.absolutePath() + QDir::separator() + "test_log.txt";
+
+    std::shared_ptr<QFile> pLogFile = std::shared_ptr<QFile>(new QFile(logName));
+    if (!pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))           
+        return;
+
+    std::shared_ptr<QMutex> pMutex = std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive));
+
+    foreach (const QModelIndex& index, allIndexes)
+    {
         const QFileInfo& qfi = m_model.fileInfo(index);
         if (!qfi.isDir())
-            m_fiSet.insert(FileInfo(qfi));
-	}
-
-    if (m_fiSet.empty())
-		return;
-
-    QString logName = m_fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
-
-    m_pLogFile = std::shared_ptr<QFile>(new QFile(logName));
-	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
-    {
-        m_pLogFile.reset();
-		return;
+        {
+            FileInfo fi(qfi);
+            Calculator* pCalc = new Calculator(fi, pLogFile, pMutex);
+            QThreadPool::globalInstance()->start(pCalc);
+        }
     }
-
-    m_future = QtConcurrent::map(m_fiSet, CalculatorFunctor(m_pLogFile));
-	m_futureWatcher.setFuture(m_future);
 }
 
-CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
-    std::unary_function<FileInfo, void>()
+Calculator::Calculator(const FileInfo& fi,
+                       std::shared_ptr<QFile> pFile,
+                       std::shared_ptr<QMutex> pMutex):
+    QRunnable()
+  , m_fi(fi)
   , m_pLogFile(pFile)
-  , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
-  // Mutex is created on the heap because it's not allowed to copy
-  // and the QtConcurrent::map takes the functor by value and the
-  // default copy ctor of functor tries to copy mutex if it's stored in field.
-
-  // And shared_ptr for mutex is used for mutex object deleted only once
+  , m_pMutex(pMutex)
 { }
 
-void CalculatorFunctor::operator()(const FileInfo &fileInfo)
-{    
-    QString toWrite(fileInfo.fileName() + " - ");
-    toWrite.append(" SIZE: " + makeHumanReadable(fileInfo.size()));
-    toWrite.append(" CREATED: " + fileInfo.created().toString("dd.MM.yyyy"));
-    toWrite.append(" MODIFIED: " + fileInfo.lastModified().toString("dd.MM.yyyy"));
-    toWrite.append(" " + checksum(fileInfo));
+void Calculator::run()
+{
+    QString toWrite(m_fi.fileName() + " - ");
+    toWrite.append(" SIZE: " + makeHumanReadable(m_fi.size()));
+    toWrite.append(" CREATED: " + m_fi.created().toString("dd.MM.yyyy"));
+    toWrite.append(" MODIFIED: " + m_fi.lastModified().toString("dd.MM.yyyy"));
+    toWrite.append(" " + checksum(m_fi));
     toWrite.append("\n");
 
     QMutexLocker locker(m_pMutex.get());
     m_pLogFile->write(toWrite.toUtf8());
 }
 
-QString CalculatorFunctor::makeHumanReadable(qint64 iSize)
+QString Calculator::makeHumanReadable(qint64 iSize)
 {
     QString result;
     int bytesPerKB = 1024;
@@ -220,7 +201,7 @@ QString CalculatorFunctor::makeHumanReadable(qint64 iSize)
     return result;
 }
 
-QString CalculatorFunctor::checksum(const FileInfo &fi)
+QString Calculator::checksum(const FileInfo &fi)
 {
     QFile file(fi.absoluteFilePath());
     if (!file.open(QIODevice::ReadOnly))
@@ -243,7 +224,7 @@ QString CalculatorFunctor::checksum(const FileInfo &fi)
     return c_sum;
 }
 
-QString CalculatorFunctor::checksum_test(const QString &fileName)
+QString Calculator::checksum_test(const QString &fileName)
 {
     FileInfo fi(fileName);
     return checksum(fi);
