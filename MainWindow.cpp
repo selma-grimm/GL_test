@@ -164,6 +164,11 @@ CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
     std::unary_function<FileInfo, void>()
   , m_pLogFile(pFile)
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
+  // Mutex is created on the heap because it's not allowed to copy
+  // and the QtConcurrent::map takes the functor by value and the
+  // default copy ctor of functor tries to copy mutex if it's stored in field.
+
+  // And shared_ptr for mutex is used for mutex object deleted only once
 { }
 
 void CalculatorFunctor::operator()(const FileInfo &fileInfo)
@@ -175,7 +180,7 @@ void CalculatorFunctor::operator()(const FileInfo &fileInfo)
     toWrite.append(" " + checksum(fileInfo));
     toWrite.append("\n");
 
-    QMutexLocker locker(m_pMutex.get());    
+    QMutexLocker locker(m_pMutex.get());
     m_pLogFile->write(toWrite.toUtf8());
 }
 
