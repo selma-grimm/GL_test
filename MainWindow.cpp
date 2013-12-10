@@ -155,9 +155,15 @@ void MainWindow::calculateAndLogSum()
 
     if (!pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
 		return;    
+<<<<<<< HEAD
 
     QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
 
+=======
+
+    QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
+
+>>>>>>> 0cdcf5de8de3ffe4eedf8aab79dc213d12d6c872
     //m_future = QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
     //m_futureWatcher.setFuture(m_future);
 }
@@ -179,7 +185,11 @@ CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
   // Just for the case if my code will suddenly throw something.
 { }
 
+<<<<<<< HEAD
 void CalculatorFunctor::operator()(const FileInfo& fileInfo)
+=======
+void CalculatorFunctor::operator()(FileInfo fileInfo)
+>>>>>>> 0cdcf5de8de3ffe4eedf8aab79dc213d12d6c872
 {    
     QString toWrite(fileInfo.fileName() + " - ");
     toWrite.append(" SIZE: " + makeHumanReadable(fileInfo.size()));
@@ -266,3 +276,10 @@ QString CalculatorFunctor::checksum_test(const QString &fileName)
 //    return *this;
 //}
 
+<<<<<<< HEAD
+=======
+bool FileInfo::operator<(const FileInfo& other) const
+{
+    return fileName() < other.fileName();
+}
+>>>>>>> 0cdcf5de8de3ffe4eedf8aab79dc213d12d6c872

@@ -22,10 +22,14 @@ public:
     { }
 
   //  FileInfo& operator=(const FileInfo& fileInfo);
+<<<<<<< HEAD
     bool operator<(const FileInfo& other) const
     {
         return fileName() < other.fileName();
     }
+=======
+    bool operator<(const FileInfo& other) const;
+>>>>>>> 0cdcf5de8de3ffe4eedf8aab79dc213d12d6c872
 };
 
 class MainWindow : public QMainWindow
@@ -56,7 +60,7 @@ struct CalculatorFunctor: public std::unary_function<FileInfo, void>
 {
     CalculatorFunctor(std::shared_ptr<QFile> pFile);
 
-    void operator()(const FileInfo& fileInfo);
+    void operator()(FileInfo fileInfo);
     static QString checksum_test(const QString& fileName);
 
 private:
