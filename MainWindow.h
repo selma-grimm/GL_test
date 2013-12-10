@@ -21,11 +21,11 @@ public:
         QFileInfo(qfi)
     { }
 
-  //  FileInfo& operator=(const FileInfo& fileInfo);
     bool operator<(const FileInfo& other) const
     {
         return fileName() < other.fileName();
     }
+
 };
 
 class MainWindow : public QMainWindow
@@ -38,23 +38,17 @@ public:
 
 private slots:
 	void showContextMenu(const QPoint& p);
-//    void cleanup();
 
 private:
 	void calculateAndLogSum();
 
     Ui::MainWindow *ui;
-//	QFuture<void> m_future;
-//	QFutureWatcher<void> m_futureWatcher;
-//  std::shared_ptr<QFile> m_pLogFile;
-//  std::set<FileInfo> fiSet;
-
 	QFileSystemModel m_model;
 };
 
 struct CalculatorFunctor: public std::unary_function<FileInfo, void>
 {
-    CalculatorFunctor(std::shared_ptr<QFile> pFile);
+    CalculatorFunctor(std::shared_ptr<QFile> pFile, std::shared_ptr<std::set<FileInfo> > pSet);
 
     void operator()(const FileInfo& fileInfo);
     static QString checksum_test(const QString& fileName);
@@ -63,10 +57,9 @@ private:
     QString makeHumanReadable(qint64 iSize);
     static QString checksum(const FileInfo& fi);
 
+    const std::shared_ptr<std::set<FileInfo> > m_pSet;
     const std::shared_ptr<QFile> m_pLogFile;
-
     const std::shared_ptr<QMutex> m_pMutex;
-//  QMutex mutex;
 
     static const int BUFSIZE = 8192;
     static const quint32 m_crc32_tab[256];

@@ -99,11 +99,6 @@ MainWindow::MainWindow(QWidget *parent) :
 			SIGNAL(customContextMenuRequested(QPoint)),
 			this,
 			SLOT(showContextMenu(QPoint)));
-
-//	connect(&m_futureWatcher,
-//			SIGNAL(finished()),
-//            SLOT(cleanup()));
-
 }
 
 MainWindow::~MainWindow()
@@ -122,32 +117,23 @@ void MainWindow::showContextMenu(const QPoint &p)
 		calculateAndLogSum();
 }
 
-//void MainWindow::cleanup()
-//{
-//    if (m_pLogFile)
-//    {
-//        m_pLogFile->close();
-//        m_pLogFile.reset();
-//    }
-//}
-
 void MainWindow::calculateAndLogSum()
 {
     const QModelIndexList allIndexes = ui->tree->selectionModel()->selectedRows(0);
     ui->tree->clearSelection();
-    std::set<FileInfo> fiSet;
+    std::shared_ptr<std::set<FileInfo> >pSet = std::shared_ptr<std::set<FileInfo> >(new std::set<FileInfo>);
 
 	foreach (const QModelIndex& index, allIndexes)
 	{	
         const QFileInfo& qfi = m_model.fileInfo(index);
         if (!qfi.isDir())
-            fiSet.insert(FileInfo(qfi));
+            pSet->insert(FileInfo(qfi));
 	}
 
-    if (fiSet.empty())
+    if (pSet->empty())
 		return;
 
-    QString logName = fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
+    QString logName = pSet.get()->begin()->absolutePath() + QDir::separator() + "test_log.txt";
 
     // QFile pointer will be passed to CalculatorFunctor field and will be deleted
     // by shared_ptr, ~QFile will close the file
@@ -156,28 +142,22 @@ void MainWindow::calculateAndLogSum()
     if (!pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
 		return;    
 
-    QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
-
-    //m_future = QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
-    //m_futureWatcher.setFuture(m_future);
+    // pointer to set is passed solely to be deleted in correct time
+    QtConcurrent::map(*(pSet.get()), CalculatorFunctor(pLogFile, pSet));
 }
 
-CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
+CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile, std::shared_ptr<std::set<FileInfo> > pSet):
     std::unary_function<FileInfo, void>()
+  , m_pSet(pSet)
   , m_pLogFile(pFile)
   , m_pMutex(std::shared_ptr<QMutex>(new QMutex(QMutex::NonRecursive)))
-  //  , mutex(QMutex::NonRecursive)
+   // Mutex is created on the heap because it's not allowed to copy
+   // and the QtConcurrent::map takes the functor by value and the
+   // default copy ctor of functor tries to copy mutex if it's stored in field.
 
-  // If uncomment last line, both compilers I've tested say: "'QMutex::QMutex(const QMutex&)' is private".
-  // Thought, as I understand, they shouldn't, because in this line mustn't copy ctor called,
-  // but the normal ctor with passed parameter must.
-  // Because of this message, I haven't found another way to initialize mutex with required parameter,
-  // than on the heap
-
-  // And shared_ptr for mutex used because of too much care about safety. It's not nessesary,
-  // (and can be just deleted int dtor), as standard Qt build's methods don't throw exceptions.
-  // Just for the case if my code will suddenly throw something.
+   // And shared_ptr for mutex is used for mutex object deleted only once
 { }
+
 
 void CalculatorFunctor::operator()(const FileInfo& fileInfo)
 {    
@@ -257,12 +237,4 @@ QString CalculatorFunctor::checksum_test(const QString &fileName)
     return checksum(fi);
 }
 
-
-//FileInfo &FileInfo::operator=(const FileInfo &fileInfo)
-//{
-//    if (this != &fileInfo)
-//        QFileInfo::operator=(fileInfo);
-
-//    return *this;
-//}
 
