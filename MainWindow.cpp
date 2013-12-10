@@ -100,9 +100,9 @@ MainWindow::MainWindow(QWidget *parent) :
 			this,
 			SLOT(showContextMenu(QPoint)));
 
-	connect(&m_futureWatcher,
-			SIGNAL(finished()),
-            SLOT(cleanup()));
+//	connect(&m_futureWatcher,
+//			SIGNAL(finished()),
+//            SLOT(cleanup()));
 
 }
 
@@ -122,42 +122,44 @@ void MainWindow::showContextMenu(const QPoint &p)
 		calculateAndLogSum();
 }
 
-void MainWindow::cleanup()
-{    
-    if (m_pLogFile)
-    {
-        m_pLogFile->close();
-        m_pLogFile.reset();
-    }
-}
+//void MainWindow::cleanup()
+//{
+//    if (m_pLogFile)
+//    {
+//        m_pLogFile->close();
+//        m_pLogFile.reset();
+//    }
+//}
 
 void MainWindow::calculateAndLogSum()
 {
     const QModelIndexList allIndexes = ui->tree->selectionModel()->selectedRows(0);
     ui->tree->clearSelection();
-    m_fiSet.clear();
+    std::set<FileInfo> fiSet;
 
 	foreach (const QModelIndex& index, allIndexes)
 	{	
         const QFileInfo& qfi = m_model.fileInfo(index);
         if (!qfi.isDir())
-            m_fiSet.insert(FileInfo(qfi));
+            fiSet.insert(FileInfo(qfi));
 	}
 
-    if (m_fiSet.empty())
+    if (fiSet.empty())
 		return;
 
-    QString logName = m_fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
+    QString logName = fiSet.begin()->absolutePath() + QDir::separator() + "test_log.txt";
 
-    m_pLogFile = std::shared_ptr<QFile>(new QFile(logName));
-	if (!m_pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
-    {
-        m_pLogFile.reset();
-		return;
-    }
+    // QFile pointer will be passed to CalculatorFunctor field and will be deleted
+    // by shared_ptr, ~QFile will close the file
+    std::shared_ptr<QFile> pLogFile = std::shared_ptr<QFile>(new QFile(logName));
 
-    m_future = QtConcurrent::map(m_fiSet, CalculatorFunctor(m_pLogFile));
-	m_futureWatcher.setFuture(m_future);
+    if (!pLogFile->open(QIODevice::WriteOnly | QIODevice::Append))
+		return;    
+
+    QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
+
+    //m_future = QtConcurrent::map(fiSet, CalculatorFunctor(pLogFile));
+    //m_futureWatcher.setFuture(m_future);
 }
 
 CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
@@ -170,14 +172,14 @@ CalculatorFunctor::CalculatorFunctor(std::shared_ptr<QFile> pFile):
   // Thought, as I understand, they shouldn't, because in this line mustn't copy ctor called,
   // but the normal ctor with passed parameter must.
   // Because of this message, I haven't found another way to initialize mutex with required parameter,
-  // than on the heap.
+  // than on the heap
 
   // And shared_ptr for mutex used because of too much care about safety. It's not nessesary,
   // (and can be just deleted int dtor), as standard Qt build's methods don't throw exceptions.
   // Just for the case if my code will suddenly throw something.
 { }
 
-void CalculatorFunctor::operator()(const FileInfo &fileInfo)
+void CalculatorFunctor::operator()(FileInfo fileInfo)
 {    
     QString toWrite(fileInfo.fileName() + " - ");
     toWrite.append(" SIZE: " + makeHumanReadable(fileInfo.size()));
@@ -256,12 +258,15 @@ QString CalculatorFunctor::checksum_test(const QString &fileName)
 }
 
 
+//FileInfo &FileInfo::operator=(const FileInfo &fileInfo)
+//{
+//    if (this != &fileInfo)
+//        QFileInfo::operator=(fileInfo);
 
+//    return *this;
+//}
 
-
-
-
-
-
-
-
+bool FileInfo::operator<(const FileInfo& other) const
+{
+    return fileName() < other.fileName();
+}
