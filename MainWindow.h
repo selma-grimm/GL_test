@@ -25,7 +25,6 @@ public:
     {
         return fileName() < other.fileName();
     }
-
 };
 
 class MainWindow : public QMainWindow

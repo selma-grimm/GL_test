@@ -237,4 +237,3 @@ QString CalculatorFunctor::checksum_test(const QString &fileName)
     return checksum(fi);
 }
 
-
